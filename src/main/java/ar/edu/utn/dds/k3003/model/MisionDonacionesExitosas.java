@@ -4,8 +4,16 @@ import java.util.List;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.CategoriaDonadorEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.TipoMisionEnum;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 
+@Entity
+@DiscriminatorValue("DONACIONES_EXITOSAS")
 public class MisionDonacionesExitosas extends Mision{
+     public MisionDonacionesExitosas() {
+    super();
+}
+    
     public MisionDonacionesExitosas(
         String id, 
         String nombre, 

@@ -4,9 +4,17 @@ import java.util.List;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.CategoriaDonadorEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.TipoMisionEnum;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 
+@Entity
+@DiscriminatorValue("COMPLETITUD")
 public class MisionCompletitud extends Mision{
     
+    public MisionCompletitud() {
+    super();
+}
+
     public MisionCompletitud(
         String id, 
         String nombre, 

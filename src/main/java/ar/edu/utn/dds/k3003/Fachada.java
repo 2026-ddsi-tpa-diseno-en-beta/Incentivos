@@ -2,11 +2,9 @@ package ar.edu.utn.dds.k3003;
 
 
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
@@ -22,32 +20,46 @@ import ar.edu.utn.dds.k3003.model.Insignia;
 import ar.edu.utn.dds.k3003.model.Mision;
 import ar.edu.utn.dds.k3003.model.MisionFactory;
 import ar.edu.utn.dds.k3003.repositories.IncentivosMapper;
-import ar.edu.utn.dds.k3003.repositories.IncentivosRepositorio;
+import ar.edu.utn.dds.k3003.repositories.DonadorIncentivoRepository;
+import ar.edu.utn.dds.k3003.repositories.InsigniaRepository;
+import ar.edu.utn.dds.k3003.repositories.MisionRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
+import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class Fachada implements FachadaIncentivos {
     private FachadaDonaciones fachadaDonaciones;
     private FachadaDonadoresYEntidades fachadaDonadoresYEntidades;
-
+    private final DonadorIncentivoRepository donadorRepository;
+    private final InsigniaRepository insigniaRepository;
+    private final MisionRepository misionRepository;
     
-    private int contadorIds=1;
+
+   private int contadorIds=1;
 
     private String generarId(){
       return String.valueOf(contadorIds++);
     }
 
-    private IncentivosRepositorio repositorioIncentivos;
+    
 
-
-  public Fachada() {
+  @Autowired
+  public Fachada(DonadorIncentivoRepository donadorRepository,
+        InsigniaRepository insigniaRepository,
+        MisionRepository misionRepository) {
     /*
     Para que se ejecuten correctamente los tests, se necesita tener un constructor vacio
     Es decir, que no reciba parametros.
     Si necesitan un constructor con parametros
     Java permite tener varios constructores conviviendo sin conflictos.
     */
-
-    this.repositorioIncentivos = new IncentivosRepositorio();
+    this.donadorRepository = donadorRepository;
+    this.insigniaRepository = insigniaRepository;
+    this.misionRepository = misionRepository;
+    
   }
 
    @Override
@@ -66,15 +78,17 @@ public class Fachada implements FachadaIncentivos {
     }
 
     private DonadorIncentivo obtenerODarDeAltaDonador(String donadorID) {
-        DonadorIncentivo donador = repositorioIncentivos.buscarDonador(donadorID);
+        DonadorIncentivo donador = donadorRepository.findById(donadorID).orElse(null);
 
         if (donador == null) {
             donador = new DonadorIncentivo(donadorID);
-            repositorioIncentivos.guardarDonador(donador);
+            donadorRepository.save(donador);
         }
 
         return donador;
     }
+    
+
 
   @Override
   public InsigniaDTO agregarInsignia(InsigniaDTO insigniaDTO){
@@ -82,12 +96,13 @@ public class Fachada implements FachadaIncentivos {
       throw new RuntimeException("La insignia no existe");
     }
 
-    if(insigniaDTO.id() != null && repositorioIncentivos.buscarInsignia(insigniaDTO.id()) != null){
+    if(insigniaDTO.id() != null && insigniaRepository.findById(insigniaDTO.id()).orElse(null) != null){
       throw new RuntimeException("La insignia ya existe");
     }
     String id = insigniaDTO.id() != null ? insigniaDTO.id() : generarId();
     Insignia insignia = new Insignia(id, insigniaDTO.nombre(), insigniaDTO.descripcion());
-    repositorioIncentivos.guardarInsignia(insignia); 
+    insigniaRepository.save(insignia); 
+    
     return IncentivosMapper.toInsigniaDTO(insignia);
   }
 
@@ -97,7 +112,7 @@ public class Fachada implements FachadaIncentivos {
       throw new RuntimeException("La mision no existe");
     }
 
-    if(misionDTO.id() != null && repositorioIncentivos.buscarMision(misionDTO.id()) != null){
+    if(misionDTO.id() != null && misionRepository.findById(misionDTO.id()).orElse(null) != null){
       throw new RuntimeException("La mision ya existe");
     }
 
@@ -105,7 +120,8 @@ public class Fachada implements FachadaIncentivos {
 
     Mision mision = MisionFactory.crear(id, misionDTO); 
     
-    repositorioIncentivos.guardarMision(mision);
+    misionRepository.save(mision);
+    
     return IncentivosMapper.toMisionDTO(mision);
   }
 
@@ -118,13 +134,14 @@ public class Fachada implements FachadaIncentivos {
 
     DonadorIncentivo donador = obtenerODarDeAltaDonador(donadorID);
 
-    Insignia insignia = repositorioIncentivos.buscarInsignia(dto.id());
+    Insignia insignia = insigniaRepository.findById(dto.id()).orElse(null);
     if(insignia == null){
         throw new RuntimeException("La insignia no existe");
     }
 
     donador.agregarInsignia(insignia);
-    repositorioIncentivos.guardarDonador(donador);
+    donadorRepository.save(donador);
+    
   }
 
   @Override
@@ -137,18 +154,19 @@ public class Fachada implements FachadaIncentivos {
 
     DonadorIncentivo donador= obtenerODarDeAltaDonador(donadorID);
 
-    Mision mision = repositorioIncentivos.buscarMision(misionDTO.id());
+    Mision mision = misionRepository.findById(misionDTO.id()).orElse(null);
     if(mision == null){
       throw new RuntimeException("la misión no existe");
     }
 
     donador.asignarMision(mision);
-    repositorioIncentivos.guardarDonador(donador);
+    donadorRepository.save(donador);
+    
   }
 
   @Override
   public List<InsigniaDTO> getInsigniasDeDonador(String donadorID){
-    DonadorIncentivo donador= repositorioIncentivos.buscarDonador(donadorID);
+    DonadorIncentivo donador= donadorRepository.findById(donadorID).orElse(null);
 
     if(donador==null){
       throw new RuntimeException("Donador no encontrado en el sistema");
@@ -161,7 +179,7 @@ public class Fachada implements FachadaIncentivos {
   @Override
   public MisionDTO getMisionEnCursoDeDonador(String donadorID){
 
-    DonadorIncentivo donador = repositorioIncentivos.buscarDonador(donadorID);
+    DonadorIncentivo donador = donadorRepository.findById(donadorID).orElse(null);
 
     if(donador == null){
         throw new RuntimeException("Donador no encontrado en el sistema");
@@ -200,51 +218,48 @@ public class Fachada implements FachadaIncentivos {
     if(mision ==null) return;
 
     if(mision.estaCompleta(donaciones)){
-      Insignia insignia = repositorioIncentivos.buscarInsignia(mision.getInsigniaID());
+     
+
+      Insignia insignia = insigniaRepository.findById(mision.getInsigniaID()).orElse(null);
         
       if(insignia != null){
       donador.agregarInsignia(insignia);
+       
         }
       donador.avanzarCategoria(mision.getCategoriaFin());
       donador.completarMisionActual();
     }
-    repositorioIncentivos.guardarDonador(donador);
+    donadorRepository.save(donador);
   
   }
 
    public List<InsigniaDTO> getInsignias() {
-        return repositorioIncentivos.getInsignias()
-                .values()
-                .stream()
-                .map(IncentivosMapper::toInsigniaDTO)
-                .toList();
+        return insigniaRepository.findAll()
+            .stream()
+            .map(IncentivosMapper::toInsigniaDTO)
+            .toList();
     }
     public InsigniaDTO buscarInsigniaPorID(String id) {
 
-        Insignia insignia = repositorioIncentivos.buscarInsignia(id);
-
-        if (insignia == null) {
-            throw new RuntimeException("Insignia inexistente");
-        }
+         Insignia insignia = insigniaRepository.findById(id)
+            .orElseThrow(() ->
+                    new RuntimeException("Insignia inexistente"));
 
         return IncentivosMapper.toInsigniaDTO(insignia);
     }
 
     public List<MisionDTO> getMisiones() {
-        return repositorioIncentivos.getMisiones()
-                .values()
-                .stream()
-                .map(IncentivosMapper::toMisionDTO)
-                .toList();
+        return misionRepository.findAll()
+            .stream()
+            .map(IncentivosMapper::toMisionDTO)
+            .toList();
     }
 
     public MisionDTO buscarMisionPorID(String id) {
 
-        Mision mision = repositorioIncentivos.buscarMision(id);
-
-        if (mision == null) {
-            throw new RuntimeException("Misión inexistente");
-        }
+        Mision mision = misionRepository.findById(id)
+            .orElseThrow(() ->
+                    new RuntimeException("Misión inexistente"));
 
         return IncentivosMapper.toMisionDTO(mision);
     }
