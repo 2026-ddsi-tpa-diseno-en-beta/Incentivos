@@ -53,6 +53,11 @@
     <version>2.5.0</version>
 </dependency>
 
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-datadog</artifactId>
+</dependency>
+
     <!-- Database -->
 <dependency>
     <groupId>org.postgresql</groupId>
