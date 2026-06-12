@@ -77,4 +77,8 @@ public class DonadorIncentivo {
         if(mision != null) {
         mision.completar();}
     }
+
+    public List<Mision> getMisiones(){
+        return misiones;
+    }
 }

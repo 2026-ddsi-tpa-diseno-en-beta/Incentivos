@@ -36,7 +36,7 @@ public class Fachada implements FachadaIncentivos {
     private final DonadorIncentivoRepository donadorRepository;
     private final InsigniaRepository insigniaRepository;
     private final MisionRepository misionRepository;
-    
+    private final MeterRegistry meterRegistry;
 
    private int contadorIds=1;
 
@@ -44,12 +44,19 @@ public class Fachada implements FachadaIncentivos {
       return String.valueOf(contadorIds++);
     }
 
-    
+  private void incrementarMetrica(String nombre) {
+    if (meterRegistry != null) {
+        Counter.builder(nombre)
+                .register(meterRegistry)
+                .increment();
+    }
+}
 
   @Autowired
   public Fachada(DonadorIncentivoRepository donadorRepository,
         InsigniaRepository insigniaRepository,
-        MisionRepository misionRepository) {
+        MisionRepository misionRepository, 
+        MeterRegistry meterRegistry) {
     /*
     Para que se ejecuten correctamente los tests, se necesita tener un constructor vacio
     Es decir, que no reciba parametros.
@@ -59,7 +66,7 @@ public class Fachada implements FachadaIncentivos {
     this.donadorRepository = donadorRepository;
     this.insigniaRepository = insigniaRepository;
     this.misionRepository = misionRepository;
-    
+    this.meterRegistry = null;
   }
 
    @Override
@@ -102,7 +109,7 @@ public class Fachada implements FachadaIncentivos {
     String id = insigniaDTO.id() != null ? insigniaDTO.id() : generarId();
     Insignia insignia = new Insignia(id, insigniaDTO.nombre(), insigniaDTO.descripcion());
     insigniaRepository.save(insignia); 
-    
+    incrementarMetrica("donatrack.incentivos.insignias.creadas");
     return IncentivosMapper.toInsigniaDTO(insignia);
   }
 
@@ -121,7 +128,7 @@ public class Fachada implements FachadaIncentivos {
     Mision mision = MisionFactory.crear(id, misionDTO); 
     
     misionRepository.save(mision);
-    
+    incrementarMetrica("donatrack.incentivos.misiones.creadas");
     return IncentivosMapper.toMisionDTO(mision);
   }
 
@@ -161,7 +168,7 @@ public class Fachada implements FachadaIncentivos {
 
     donador.asignarMision(mision);
     donadorRepository.save(donador);
-    
+    incrementarMetrica("donatrack.incentivos.misiones.asignadas");
   }
 
   @Override
@@ -230,7 +237,7 @@ public class Fachada implements FachadaIncentivos {
       donador.completarMisionActual();
     }
     donadorRepository.save(donador);
-  
+    incrementarMetrica("donatrack.incentivos.donadores.procesados");
   }
 
    public List<InsigniaDTO> getInsignias() {
@@ -264,4 +271,10 @@ public class Fachada implements FachadaIncentivos {
         return IncentivosMapper.toMisionDTO(mision);
     }
 
+    @Transactional
+    public void limpiarDatos() {
+    donadorRepository.deleteAll();
+    misionRepository.deleteAll();
+    insigniaRepository.deleteAll();
+}
 }
