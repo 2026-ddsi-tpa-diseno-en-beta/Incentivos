@@ -25,7 +25,6 @@ import ar.edu.utn.dds.k3003.repositories.InsigniaRepository;
 import ar.edu.utn.dds.k3003.repositories.MisionRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
-import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -66,7 +65,7 @@ public class Fachada implements FachadaIncentivos {
     this.donadorRepository = donadorRepository;
     this.insigniaRepository = insigniaRepository;
     this.misionRepository = misionRepository;
-    this.meterRegistry = null;
+    this.meterRegistry = meterRegistry;
   }
 
    @Override
@@ -80,7 +79,10 @@ public class Fachada implements FachadaIncentivos {
     }
 
     private void validarQueDonadorExiste(String donadorID) {
-      if(donadorID==null) throw new RuntimeException("El donador no existe en el sistema");
+      if(donadorID==null){ 
+        incrementarMetrica("donatrack.incentivos.errores");
+        throw new RuntimeException("El donador no existe en el sistema");
+      }
         fachadaDonadoresYEntidades.buscarDonadorPorID(donadorID);
     }
 
@@ -100,10 +102,12 @@ public class Fachada implements FachadaIncentivos {
   @Override
   public InsigniaDTO agregarInsignia(InsigniaDTO insigniaDTO){
     if(insigniaDTO==null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("La insignia no existe");
     }
 
     if(insigniaDTO.id() != null && insigniaRepository.findById(insigniaDTO.id()).orElse(null) != null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("La insignia ya existe");
     }
     String id = insigniaDTO.id() != null ? insigniaDTO.id() : generarId();
@@ -116,10 +120,12 @@ public class Fachada implements FachadaIncentivos {
   @Override 
   public MisionDTO agregarMision(MisionDTO misionDTO){
     if(misionDTO == null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("La mision no existe");
     }
 
     if(misionDTO.id() != null && misionRepository.findById(misionDTO.id()).orElse(null) != null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("La mision ya existe");
     }
 
@@ -136,6 +142,7 @@ public class Fachada implements FachadaIncentivos {
   public void asignarInsigniaADonador(String donadorID, InsigniaDTO dto){
     this.validarQueDonadorExiste(donadorID);
     if(dto == null || dto.id() == null){
+      incrementarMetrica("donatrack.incentivos.errores");
         throw new RuntimeException("InsigniaDTO invalida");
     }
 
@@ -143,6 +150,7 @@ public class Fachada implements FachadaIncentivos {
 
     Insignia insignia = insigniaRepository.findById(dto.id()).orElse(null);
     if(insignia == null){
+      incrementarMetrica("donatrack.incentivos.errores");
         throw new RuntimeException("La insignia no existe");
     }
 
@@ -156,6 +164,7 @@ public class Fachada implements FachadaIncentivos {
     this.validarQueDonadorExiste(donadorID);
     
     if(misionDTO == null || misionDTO.id() == null){
+      incrementarMetrica("donatrack.incentivos.errores");
         throw new RuntimeException("MisionDTO invalida");
     }
 
@@ -163,6 +172,7 @@ public class Fachada implements FachadaIncentivos {
 
     Mision mision = misionRepository.findById(misionDTO.id()).orElse(null);
     if(mision == null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("la misión no existe");
     }
 
@@ -173,9 +183,12 @@ public class Fachada implements FachadaIncentivos {
 
   @Override
   public List<InsigniaDTO> getInsigniasDeDonador(String donadorID){
+    incrementarMetrica("donatrack.incentivos.consultas");
+
     DonadorIncentivo donador= donadorRepository.findById(donadorID).orElse(null);
 
     if(donador==null){
+      incrementarMetrica("donatrack.incentivos.errores");
       throw new RuntimeException("Donador no encontrado en el sistema");
     }
     return donador.getInsignias().stream()
@@ -185,10 +198,12 @@ public class Fachada implements FachadaIncentivos {
 
   @Override
   public MisionDTO getMisionEnCursoDeDonador(String donadorID){
+    incrementarMetrica("donatrack.incentivos.consultas");
 
     DonadorIncentivo donador = donadorRepository.findById(donadorID).orElse(null);
 
     if(donador == null){
+      incrementarMetrica("donatrack.incentivos.errores");
         throw new RuntimeException("Donador no encontrado en el sistema");
     }
     Mision mision = donador.getMisionActual();
@@ -241,12 +256,15 @@ public class Fachada implements FachadaIncentivos {
   }
 
    public List<InsigniaDTO> getInsignias() {
+       incrementarMetrica("donatrack.incentivos.consultas");
+
         return insigniaRepository.findAll()
             .stream()
             .map(IncentivosMapper::toInsigniaDTO)
             .toList();
     }
     public InsigniaDTO buscarInsigniaPorID(String id) {
+         incrementarMetrica("donatrack.incentivos.consultas");
 
          Insignia insignia = insigniaRepository.findById(id)
             .orElseThrow(() ->
@@ -256,6 +274,7 @@ public class Fachada implements FachadaIncentivos {
     }
 
     public List<MisionDTO> getMisiones() {
+        incrementarMetrica("donatrack.incentivos.consultas");
         return misionRepository.findAll()
             .stream()
             .map(IncentivosMapper::toMisionDTO)
@@ -263,6 +282,7 @@ public class Fachada implements FachadaIncentivos {
     }
 
     public MisionDTO buscarMisionPorID(String id) {
+       incrementarMetrica("donatrack.incentivos.consultas");
 
         Mision mision = misionRepository.findById(id)
             .orElseThrow(() ->
