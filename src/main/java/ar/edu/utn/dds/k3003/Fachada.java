@@ -11,6 +11,7 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.InsigniaDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.MisionDTO;
+import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.TipoMisionEnum;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonaciones;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaIncentivos;
@@ -235,9 +236,29 @@ public class Fachada implements FachadaIncentivos {
                     );
                 })
                 .toList(); 
-    
+
+    /* procesar perdida de donaciones exitosas */
+    Mision misionDonacionesExitosas =
+            donador.getMisionCompletada(
+                    TipoMisionEnum.DONACIONES_EXITOSAS
+            );
+
+    if (misionDonacionesExitosas != null
+            && !misionDonacionesExitosas.estaCompleta(donaciones)) {
+
+        donador.perderMision(misionDonacionesExitosas);
+
+        incrementarMetrica(
+                "donatrack.incentivos.misiones.perdidas"
+        );
+    }
+    // procesar mision actual
+
     Mision mision = donador.getMisionActual();
-    if(mision ==null) return;
+    if(mision == null){
+        donadorRepository.save(donador);
+        return;
+    }
 
     if(mision.estaCompleta(donaciones)){
      

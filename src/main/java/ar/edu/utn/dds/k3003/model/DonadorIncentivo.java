@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.CategoriaDonadorEnum;
+import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.TipoMisionEnum;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -57,6 +58,12 @@ public class DonadorIncentivo {
         this.insignias.add(insignia);
     }
 
+    public void quitarInsignia(String insigniaID){
+    this.insignias.removeIf(
+        insignia -> insignia.getId().equals(insigniaID)
+    );
+    }
+
     public void asignarMision(Mision mision){
         this.misiones.add(mision);
     }
@@ -81,4 +88,18 @@ public class DonadorIncentivo {
     public List<Mision> getMisiones(){
         return misiones;
     }
+
+    public Mision getMisionCompletada(TipoMisionEnum tipo){
+        return misiones.stream()
+            .filter(Mision::estaCompletada)
+            .filter(m -> m.getTipo() == tipo)
+            .findFirst()
+            .orElse(null);
+    }
+
+    public void perderMision(Mision mision){
+        mision.setCompletada(false);
+        this.categoria = mision.getCategoriaInicio();
+        quitarInsignia(mision.getInsigniaID());
+}
 }
