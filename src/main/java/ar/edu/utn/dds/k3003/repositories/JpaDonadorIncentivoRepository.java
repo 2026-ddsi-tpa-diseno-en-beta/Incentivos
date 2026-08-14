@@ -30,6 +30,12 @@ public class JpaDonadorIncentivoRepository implements DonadorIncentivoRepository
   public  List<DonadorIncentivo> findAll(){
     return repository.findAll();
   }
+
+  @Override
+    public List<String> findAllIds() { 
+        return repository.findAllIds();
+  }
+
   @Override
   public void deleteAll(){
     repository.deleteAll();

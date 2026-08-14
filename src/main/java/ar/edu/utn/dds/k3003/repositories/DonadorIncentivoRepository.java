@@ -9,5 +9,6 @@ public interface DonadorIncentivoRepository {
     DonadorIncentivo save(DonadorIncentivo donador);
     Optional<DonadorIncentivo> findById(String id);
     List<DonadorIncentivo> findAll();
+    List<String> findAllIds();
     void deleteAll();
 }

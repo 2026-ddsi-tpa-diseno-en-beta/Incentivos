@@ -32,7 +32,6 @@ public abstract class Mision {
 
     @Enumerated(EnumType.STRING)
     private CategoriaDonadorEnum categoriaFin;
-    private boolean completada= false;
 
     @Enumerated(EnumType.STRING)
     private TipoMisionEnum tipo;
@@ -50,17 +49,10 @@ public abstract class Mision {
         this.tipo= tipo;
     }
 
-        public abstract boolean estaCompleta(List<DonacionSimulada> donaciones);
+    public abstract boolean estaCompleta(List<DonacionSimulada> donaciones);
     
 
-    public boolean estaCompletada() { return completada; }
 
-    public void completar() { 
-        this.completada = true; 
-    }
-     public void setCompletada(boolean completada) {
-        this.completada = completada;
-    }
 
     public String getId(){return id;};
     public String getNombre() { return nombre; }

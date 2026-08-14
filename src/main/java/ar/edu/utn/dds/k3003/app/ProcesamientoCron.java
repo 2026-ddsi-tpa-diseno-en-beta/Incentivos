@@ -1,9 +1,10 @@
 package ar.edu.utn.dds.k3003.app;
+import java.util.List;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import ar.edu.utn.dds.k3003.repositories.DonadorIncentivoRepository;
 import ar.edu.utn.dds.k3003.Fachada;
-import ar.edu.utn.dds.k3003.model.DonadorIncentivo;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -23,25 +24,21 @@ public class ProcesamientoCron {
         }
     
     @Scheduled(fixedRate = 60000)
-    public void procesarDonadores() {
+    public void ejecutarProcesamiento() {
         
           Counter.builder("donatrack.incentivos.cron.ejecuciones")
                 .register(meterRegistry)
                 .increment();
+        
+        List<String> donadorIds = donadorRepository.findAllIds();
 
-        for (DonadorIncentivo donador : donadorRepository.findAll()) {
-
-            if (donador.getMisionActual() != null) {
-                try {
-                    fachada.procesarDonador(donador.getDonadorId());
-                } catch (Exception e) {
-                    System.err.println(
-                        "Error procesando donador "
-                        + donador.getDonadorId()
-                        + ": "
-                        + e.getMessage()
-                    );
-                }
+        for (String donadorId : donadorIds) {
+            try {
+                
+                fachada.procesarDonador(donadorId);
+            } catch (Exception e) {
+                // Si falla un donador, el catch lo frena acá y continúa con los siguientes
+                System.err.println("Error procesando misiones del donador ID " + donadorId + ": " + e.getMessage());
             }
         }
     }

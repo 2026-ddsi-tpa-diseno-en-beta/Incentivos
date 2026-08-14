@@ -72,34 +72,9 @@ public class DonadorIncentivo {
         this.categoria = nuevaCategoria;
     }
 
-    public Mision getMisionActual(){
-        return misiones.stream()
-        .filter(m -> !m.estaCompletada())
-        .findFirst()
-        .orElse(null);
-    }
-
-    public void completarMisionActual(){
-        Mision mision= getMisionActual();
-        if(mision != null) {
-        mision.completar();}
-    }
 
     public List<Mision> getMisiones(){
         return misiones;
     }
 
-    public Mision getMisionCompletada(TipoMisionEnum tipo){
-        return misiones.stream()
-            .filter(Mision::estaCompletada)
-            .filter(m -> m.getTipo() == tipo)
-            .findFirst()
-            .orElse(null);
-    }
-
-    public void perderMision(Mision mision){
-        mision.setCompletada(false);
-        this.categoria = mision.getCategoriaInicio();
-        quitarInsignia(mision.getInsigniaID());
-}
 }

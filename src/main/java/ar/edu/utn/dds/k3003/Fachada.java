@@ -3,12 +3,14 @@ package ar.edu.utn.dds.k3003;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
+import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.CategoriaDonadorEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.InsigniaDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.MisionDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.TipoMisionEnum;
@@ -20,10 +22,12 @@ import ar.edu.utn.dds.k3003.model.DonadorIncentivo;
 import ar.edu.utn.dds.k3003.model.Insignia;
 import ar.edu.utn.dds.k3003.model.Mision;
 import ar.edu.utn.dds.k3003.model.MisionFactory;
+import ar.edu.utn.dds.k3003.model.ProgresoMision;
 import ar.edu.utn.dds.k3003.repositories.IncentivosMapper;
 import ar.edu.utn.dds.k3003.repositories.DonadorIncentivoRepository;
 import ar.edu.utn.dds.k3003.repositories.InsigniaRepository;
 import ar.edu.utn.dds.k3003.repositories.MisionRepository;
+import ar.edu.utn.dds.k3003.repositories.ProgresoMisionRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +41,7 @@ public class Fachada implements FachadaIncentivos {
     private final InsigniaRepository insigniaRepository;
     private final MisionRepository misionRepository;
     private final MeterRegistry meterRegistry;
+    private final ProgresoMisionRepository progresoMisionRepository;
 
    private int contadorIds=1;
 
@@ -56,7 +61,8 @@ public class Fachada implements FachadaIncentivos {
   public Fachada(DonadorIncentivoRepository donadorRepository,
         InsigniaRepository insigniaRepository,
         MisionRepository misionRepository, 
-        MeterRegistry meterRegistry) {
+        MeterRegistry meterRegistry,
+        ProgresoMisionRepository progresoMisionRepository) {
     /*
     Para que se ejecuten correctamente los tests, se necesita tener un constructor vacio
     Es decir, que no reciba parametros.
@@ -67,6 +73,7 @@ public class Fachada implements FachadaIncentivos {
     this.insigniaRepository = insigniaRepository;
     this.misionRepository = misionRepository;
     this.meterRegistry = meterRegistry;
+    this.progresoMisionRepository = progresoMisionRepository;
   }
 
    @Override
@@ -97,7 +104,36 @@ public class Fachada implements FachadaIncentivos {
 
         return donador;
     }
+
+    private ProgresoMision obtenerProgresoActual(DonadorIncentivo donador) {
+    for (Mision mision : donador.getMisiones()) {
+
+        ProgresoMision progreso =
+                progresoMisionRepository
+                        .findByDonadorIdAndMisionId(
+                                donador.getDonadorId(),
+                                mision.getId()
+                        )
+                        .orElse(null);
+
+        if (progreso != null && !progreso.estaCompletada()) {
+            return progreso;
+        }
+    }
+    return null;
+    }
     
+    private void asignarSiguienteMisionAutomaticamente(DonadorIncentivo donador, CategoriaDonadorEnum nuevaCategoria) {
+        List<Mision> misiones = misionRepository.findAll();
+        for (Mision m : misiones) {
+            if (nuevaCategoria.equals(m.getCategoriaInicio())) {
+                donador.asignarMision(m);
+                ProgresoMision nuevoProgreso = new ProgresoMision(donador.getDonadorId(), m.getId());
+                progresoMisionRepository.save(nuevoProgreso);
+                break; // Asigna la primera misión encontrada que coincida con la categoría inicial
+            }
+        }
+    }
 
 
   @Override
@@ -178,6 +214,14 @@ public class Fachada implements FachadaIncentivos {
     }
 
     donador.asignarMision(mision);
+
+    ProgresoMision progreso =
+        new ProgresoMision(
+                donadorID,
+                mision.getId()
+        );
+
+    progresoMisionRepository.save(progreso);
     donadorRepository.save(donador);
     incrementarMetrica("donatrack.incentivos.misiones.asignadas");
   }
@@ -207,74 +251,89 @@ public class Fachada implements FachadaIncentivos {
       incrementarMetrica("donatrack.incentivos.errores");
         throw new RuntimeException("Donador no encontrado en el sistema");
     }
-    Mision mision = donador.getMisionActual();
+  ProgresoMision progreso = obtenerProgresoActual(donador);
 
-    if(mision == null){return null;};
+  if (progreso == null) {
+    incrementarMetrica("donatrack.incentivos.errores");
+            throw new NoSuchElementException("El donador " + donadorID + " no tiene ninguna misión en curso");
+  }
 
-    return IncentivosMapper.toMisionDTO(mision);
+  Mision mision = misionRepository
+        .findById(progreso.getMisionId())
+        .orElseThrow(() ->
+                new RuntimeException("Misión inexistente"));
+
+  return IncentivosMapper.toMisionDTO(mision);
 }
 
   @Override
-  public void procesarDonador(String donadorID){
+public void procesarDonador(String donadorID) {
     this.validarQueDonadorExiste(donadorID);
 
     DonadorIncentivo donador = obtenerODarDeAltaDonador(donadorID);
 
-    var donacionesDTO= fachadaDonaciones.buscarPorDonadorYFechaInicio(
-      donadorID, LocalDate.of(2025, 1, 1)
-    );
-    List<DonacionSimulada> donaciones = donacionesDTO.stream()
-                  .map(d -> {
-
-                    ProductoDTO producto =
-                            fachadaDonaciones.buscarProductoPorID(d.productoID());
-
-                    return new DonacionSimulada(
-                            producto.categoriaID(),
-                            d.cantidad(),
-                            d.estado() == EstadoDonacionEnum.ACEPTADA
-                    );
-                })
-                .toList(); 
-
-    /* procesar perdida de donaciones exitosas */
-    Mision misionDonacionesExitosas =
-            donador.getMisionCompletada(
-                    TipoMisionEnum.DONACIONES_EXITOSAS
+    var donacionesDTO =
+            fachadaDonaciones.buscarPorDonadorYFechaInicio(
+                    donadorID,
+                    LocalDate.of(2025, 1, 1)
             );
 
-    if (misionDonacionesExitosas != null
-            && !misionDonacionesExitosas.estaCompleta(donaciones)) {
+    List<DonacionSimulada> donaciones =
+            donacionesDTO.stream()
+                    .map(d -> {
+                        ProductoDTO producto =
+                                fachadaDonaciones.buscarProductoPorID(
+                                        d.productoID()
+                                );
 
-        donador.perderMision(misionDonacionesExitosas);
+                        return new DonacionSimulada(
+                                producto.categoriaID(),
+                                d.cantidad(),
+                                d.estado() == EstadoDonacionEnum.ACEPTADA
+                        );
+                    })
+                    .toList();
 
-        incrementarMetrica(
-                "donatrack.incentivos.misiones.perdidas"
-        );
-    }
-    // procesar mision actual
+    ProgresoMision progreso = obtenerProgresoActual(donador);
 
-    Mision mision = donador.getMisionActual();
-    if(mision == null){
-        donadorRepository.save(donador);
+    if (progreso == null) {
         return;
     }
 
-    if(mision.estaCompleta(donaciones)){
-     
+    Mision mision =
+            misionRepository
+                    .findById(progreso.getMisionId())
+                    .orElseThrow(() ->
+                            new RuntimeException("Misión inexistente"));
 
-      Insignia insignia = insigniaRepository.findById(mision.getInsigniaID()).orElse(null);
-        
-      if(insignia != null){
-      donador.agregarInsignia(insignia);
-       
+    if (mision.estaCompleta(donaciones)) {
+
+        if (mision.getInsigniaID() != null) {
+                Insignia insignia = insigniaRepository.findById(mision.getInsigniaID()).orElse(null);
+                if (insignia != null) {
+                    donador.agregarInsignia(insignia);
+                }
+            }
+
+            // 2. Avanzar de categoría
+            CategoriaDonadorEnum nuevaCategoria = mision.getCategoriaFin();
+            if (nuevaCategoria != null) {
+                donador.avanzarCategoria(nuevaCategoria);
+            }
+
+            // 3. Completar el progreso
+            progreso.completar();
+            progresoMisionRepository.save(progreso);
+
+            // 4. INC-04: Asignar automáticamente la siguiente misión para la nueva categoría
+            if (nuevaCategoria != null) {
+                asignarSiguienteMisionAutomaticamente(donador, nuevaCategoria);
+            }
         }
-      donador.avanzarCategoria(mision.getCategoriaFin());
-      donador.completarMisionActual();
-    }
-    donadorRepository.save(donador);
-    incrementarMetrica("donatrack.incentivos.donadores.procesados");
-  }
+
+        donadorRepository.save(donador);
+        incrementarMetrica("donatrack.incentivos.donadores.procesados");
+}
 
    public List<InsigniaDTO> getInsignias() {
        incrementarMetrica("donatrack.incentivos.consultas");
@@ -314,6 +373,7 @@ public class Fachada implements FachadaIncentivos {
 
     @Transactional
     public void limpiarDatos() {
+    progresoMisionRepository.deleteAll();
     donadorRepository.deleteAll();
     misionRepository.deleteAll();
     insigniaRepository.deleteAll();
