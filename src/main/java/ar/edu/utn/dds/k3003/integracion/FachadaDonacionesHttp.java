@@ -42,7 +42,7 @@ public class FachadaDonacionesHttp implements FachadaDonaciones{
 
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/donaciones/search")
+                        .path("/donaciones")
                         .queryParam("donadorID", donadorID)
                         .queryParam("fecha", fecha)
                         .build())

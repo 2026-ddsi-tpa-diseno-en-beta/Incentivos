@@ -18,6 +18,5 @@ flowchart LR
     Incentivos --"Valida existencia y consulta datos"--> Donadores
     Donadores --"Confirma identidad" -->Incentivos
     
-    Incentivos --"Verifica historial de donaciones"--> Donaciones
-    Donaciones --"Confirma donaciones"--> Incentivos
+    Incentivos --"Consulta historial de donaciones"--> Donaciones
 ```
