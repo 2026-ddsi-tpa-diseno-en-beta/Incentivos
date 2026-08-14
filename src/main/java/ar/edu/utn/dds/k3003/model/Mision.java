@@ -32,7 +32,6 @@ public abstract class Mision {
 
     @Enumerated(EnumType.STRING)
     private CategoriaDonadorEnum categoriaFin;
-     private boolean completada= false;
 
     @Enumerated(EnumType.STRING)
     private TipoMisionEnum tipo;
