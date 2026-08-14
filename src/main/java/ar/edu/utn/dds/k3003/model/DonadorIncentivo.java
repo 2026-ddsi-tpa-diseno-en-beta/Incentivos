@@ -72,6 +72,9 @@ public class DonadorIncentivo {
         this.categoria = nuevaCategoria;
     }
 
+    public void retrocederCategoria(CategoriaDonadorEnum categoriaAnterior) {
+    this.categoria = categoriaAnterior;
+    }
 
     public List<Mision> getMisiones(){
         return misiones;

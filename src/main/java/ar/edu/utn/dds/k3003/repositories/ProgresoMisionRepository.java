@@ -16,5 +16,10 @@ public interface ProgresoMisionRepository {
 
     List<ProgresoMision> findByDonadorId(String donadorId);
 
+    boolean existsByDonadorIdAndMisionId(
+        String donadorId,
+        String misionId
+);
+
     void deleteAll();
 }

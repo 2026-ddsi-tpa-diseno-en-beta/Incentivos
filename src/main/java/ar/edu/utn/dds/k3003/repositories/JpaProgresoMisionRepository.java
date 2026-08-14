@@ -41,6 +41,17 @@ public class JpaProgresoMisionRepository
     }
 
     @Override
+    public boolean existsByDonadorIdAndMisionId(
+        String donadorId,
+        String misionId) {
+
+    return repository.existsByDonadorIdAndMisionId(
+            donadorId,
+            misionId
+    );
+}
+
+    @Override
     public void deleteAll() {
         repository.deleteAll();
     }

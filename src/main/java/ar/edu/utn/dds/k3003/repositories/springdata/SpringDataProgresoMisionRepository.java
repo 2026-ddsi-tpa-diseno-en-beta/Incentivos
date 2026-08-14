@@ -16,4 +16,9 @@ public interface SpringDataProgresoMisionRepository
     );
 
     List<ProgresoMision> findByDonadorId(String donadorId);
+
+    boolean existsByDonadorIdAndMisionId(
+        String donadorId,
+        String misionId
+);
 }

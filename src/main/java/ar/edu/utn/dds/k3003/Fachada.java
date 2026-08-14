@@ -122,18 +122,14 @@ public class Fachada implements FachadaIncentivos {
     }
     return null;
     }
+
+    private List<ProgresoMision> obtenerProgresosDelDonador(
+        DonadorIncentivo donador) {
+
+    return progresoMisionRepository
+            .findByDonadorId(donador.getDonadorId());
+}
     
-    private void asignarSiguienteMisionAutomaticamente(DonadorIncentivo donador, CategoriaDonadorEnum nuevaCategoria) {
-        List<Mision> misiones = misionRepository.findAll();
-        for (Mision m : misiones) {
-            if (nuevaCategoria.equals(m.getCategoriaInicio())) {
-                donador.asignarMision(m);
-                ProgresoMision nuevoProgreso = new ProgresoMision(donador.getDonadorId(), m.getId());
-                progresoMisionRepository.save(nuevoProgreso);
-                break; // Asigna la primera misión encontrada que coincida con la categoría inicial
-            }
-        }
-    }
 
 
   @Override
@@ -213,15 +209,31 @@ public class Fachada implements FachadaIncentivos {
       throw new RuntimeException("la misión no existe");
     }
 
+    if (progresoMisionRepository.existsByDonadorIdAndMisionId(
+        donadorID,
+        mision.getId())) {
+
+    incrementarMetrica("donatrack.incentivos.errores");
+
+    throw new RuntimeException(
+            "La misión ya está asignada al donador"
+    );
+}
+
     donador.asignarMision(mision);
 
+    if (!progresoMisionRepository.existsByDonadorIdAndMisionId(
+        donadorID,
+        mision.getId())) {
+
     ProgresoMision progreso =
-        new ProgresoMision(
-                donadorID,
-                mision.getId()
-        );
+            new ProgresoMision(
+                    donadorID,
+                    mision.getId()
+            );
 
     progresoMisionRepository.save(progreso);
+  }
     donadorRepository.save(donador);
     incrementarMetrica("donatrack.incentivos.misiones.asignadas");
   }
@@ -267,7 +279,8 @@ public class Fachada implements FachadaIncentivos {
 }
 
   @Override
-public void procesarDonador(String donadorID) {
+  @Transactional
+  public void procesarDonador(String donadorID) {
     this.validarQueDonadorExiste(donadorID);
 
     DonadorIncentivo donador = obtenerODarDeAltaDonador(donadorID);
@@ -294,46 +307,78 @@ public void procesarDonador(String donadorID) {
                     })
                     .toList();
 
-    ProgresoMision progreso = obtenerProgresoActual(donador);
+    List<ProgresoMision> progresos =
+            obtenerProgresosDelDonador(donador);
 
-    if (progreso == null) {
-        return;
+    for (ProgresoMision progreso : progresos) {
+
+        Mision mision =
+                misionRepository
+                        .findById(progreso.getMisionId())
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Misión inexistente"
+                                )
+                        );
+
+
+if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
+
+    // La misión se completa por primera vez
+    
+
+        Insignia insignia =
+                insigniaRepository
+                        .findById(mision.getInsigniaID())
+                        .orElse(null);
+
+        if (insignia != null) {
+            donador.agregarInsignia(insignia);
+        }
+
+        CategoriaDonadorEnum nuevaCategoria =
+                mision.getCategoriaFin();
+
+        if (nuevaCategoria != null) {
+            donador.avanzarCategoria(nuevaCategoria);
+        }
+
+        progreso.completar();
+        progresoMisionRepository.save(progreso);
+    
+
+} else if ( !mision.estaCompleta(donaciones) &&
+        progreso.estaCompletada()
+        && mision.getTipo() == TipoMisionEnum.DONACIONES_EXITOSAS
+) {
+
+    // Donaciones Exitosas dejó de cumplirse.
+    // Se pierde todo el progreso de la misión.
+
+    progreso.descompletar();
+
+    // Volver a la categoría desde la cual se obtenía la misión
+    CategoriaDonadorEnum categoriaAnterior =
+            mision.getCategoriaInicio();
+
+    if (categoriaAnterior != null) {
+        donador.retrocederCategoria(categoriaAnterior);
     }
 
-    Mision mision =
-            misionRepository
-                    .findById(progreso.getMisionId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Misión inexistente"));
+    // Quitar la insignia correspondiente a la misión
+    if (mision.getInsigniaID() != null) {
+        donador.quitarInsignia(
+                mision.getInsigniaID()
+        );
+    }
 
-    if (mision.estaCompleta(donaciones)) {
-
-        if (mision.getInsigniaID() != null) {
-                Insignia insignia = insigniaRepository.findById(mision.getInsigniaID()).orElse(null);
-                if (insignia != null) {
-                    donador.agregarInsignia(insignia);
-                }
-            }
-
-            // 2. Avanzar de categoría
-            CategoriaDonadorEnum nuevaCategoria = mision.getCategoriaFin();
-            if (nuevaCategoria != null) {
-                donador.avanzarCategoria(nuevaCategoria);
-            }
-
-            // 3. Completar el progreso
-            progreso.completar();
-            progresoMisionRepository.save(progreso);
-
-            // 4. INC-04: Asignar automáticamente la siguiente misión para la nueva categoría
-            if (nuevaCategoria != null) {
-                asignarSiguienteMisionAutomaticamente(donador, nuevaCategoria);
-            }
-        }
+    progresoMisionRepository.save(progreso);
+}
 
         donadorRepository.save(donador);
         incrementarMetrica("donatrack.incentivos.donadores.procesados");
 }
+  }
 
    public List<InsigniaDTO> getInsignias() {
        incrementarMetrica("donatrack.incentivos.consultas");
