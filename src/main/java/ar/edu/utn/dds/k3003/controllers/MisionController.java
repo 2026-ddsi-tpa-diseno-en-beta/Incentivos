@@ -4,6 +4,7 @@ import ar.edu.utn.dds.k3003.Fachada;
 import ar.edu.utn.dds.k3003.catedra.dtos.incentivos.MisionDTO;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -61,8 +62,11 @@ public ResponseEntity<MisionDTO> crearMision(
     public ResponseEntity<MisionDTO> getMisionEnCurso(
             @PathVariable String donadorID) {
 
-        return ResponseEntity.ok(
-                fachada.getMisionEnCursoDeDonador(donadorID)
-        );
+        try {
+        MisionDTO mision = fachada.getMisionEnCursoDeDonador(donadorID);
+        return ResponseEntity.ok(mision);
+        } catch (NoSuchElementException e) {
+        return ResponseEntity.noContent().build();
+        }
     }
 }
