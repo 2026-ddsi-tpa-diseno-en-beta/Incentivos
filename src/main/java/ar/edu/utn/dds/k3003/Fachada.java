@@ -357,7 +357,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
         progreso.completar();
         progresoMisionRepository.save(progreso);
         incrementarMetrica("donatrack.incentivos.misiones.completadas");
-        org.slf4j.LoggerFactory.getLogger(Fachada.class).info("mision.completada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
+        ar.edu.utn.dds.k3003.observability.DomainEvents.info(org.slf4j.LoggerFactory.getLogger(Fachada.class), "mision.completada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
 
 } else if ( !mision.estaCompleta(donaciones) &&
         progreso.estaCompletada()
@@ -387,7 +387,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
     progresoMisionRepository.save(progreso);
     incrementarMetrica("donatrack.incentivos.misiones.revocadas");
-    org.slf4j.LoggerFactory.getLogger(Fachada.class).info("mision.revocada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
+    ar.edu.utn.dds.k3003.observability.DomainEvents.info(org.slf4j.LoggerFactory.getLogger(Fachada.class), "mision.revocada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
 }
 
 }
