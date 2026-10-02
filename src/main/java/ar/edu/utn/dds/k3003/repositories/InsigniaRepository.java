@@ -10,4 +10,5 @@ public interface InsigniaRepository {
     Optional<Insignia> findById(String id);
     List<Insignia> findAll();
     void deleteAll();
+  void deleteById(String id);
 }

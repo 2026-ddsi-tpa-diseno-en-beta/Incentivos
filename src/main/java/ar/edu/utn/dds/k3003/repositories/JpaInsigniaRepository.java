@@ -35,4 +35,6 @@ public class JpaInsigniaRepository implements InsigniaRepository{
   public void deleteAll(){
     repository.deleteAll();
   }
+  @Override
+  public void deleteById(String id) { repository.deleteById(id); }
 }

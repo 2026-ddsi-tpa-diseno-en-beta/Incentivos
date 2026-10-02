@@ -33,4 +33,6 @@ public class JpaMisionRepository implements MisionRepository{
   public void deleteAll(){
     repository.deleteAll();
   }
+  @Override
+  public void deleteById(String id) { repository.deleteById(id); }
 }

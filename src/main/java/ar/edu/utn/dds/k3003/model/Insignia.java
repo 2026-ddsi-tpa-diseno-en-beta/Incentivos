@@ -43,4 +43,11 @@ private void generarId() {
     }
 }
     
+
+  public void modificarDatos(String nombre, String descripcion) {
+    if (nombre == null || nombre.isBlank()) throw new IllegalArgumentException("Nombre requerido");
+    this.nombre = nombre;
+    this.descripcion = descripcion;
+  }
+
 }

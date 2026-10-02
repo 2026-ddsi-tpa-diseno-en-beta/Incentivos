@@ -65,4 +65,15 @@ public class InsigniaController  {
         );
     }
 
+
+  @PutMapping("/{id}")
+  public ResponseEntity<InsigniaDTO> modificar(@PathVariable String id, @RequestBody InsigniaDTO dto) {
+    return ResponseEntity.ok(fachada.modificarInsignia(id, dto));
+  }
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> eliminar(@PathVariable String id) {
+    fachada.eliminarInsignia(id);
+    return ResponseEntity.noContent().build();
+  }
+
 }

@@ -55,7 +55,7 @@ public class DonadorIncentivo {
     public List<Insignia> getInsignias(){return insignias;}
 
     public void agregarInsignia(Insignia insignia){
-        this.insignias.add(insignia);
+        if (this.insignias.stream().noneMatch(i -> i.getId().equals(insignia.getId()))) this.insignias.add(insignia);
     }
 
     public void quitarInsignia(String insigniaID){

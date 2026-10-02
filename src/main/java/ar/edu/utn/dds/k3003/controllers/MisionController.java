@@ -64,9 +64,20 @@ public ResponseEntity<MisionDTO> crearMision(
 
         try {
         MisionDTO mision = fachada.getMisionEnCursoDeDonador(donadorID);
-        return ResponseEntity.ok(mision);
+        return mision == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(mision);
         } catch (NoSuchElementException e) {
         return ResponseEntity.noContent().build();
         }
     }
+
+  @PutMapping("/{id}")
+  public ResponseEntity<MisionDTO> modificar(@PathVariable String id, @RequestBody MisionDTO dto) {
+    return ResponseEntity.ok(fachada.modificarMision(id, dto));
+  }
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> eliminar(@PathVariable String id) {
+    fachada.eliminarMision(id);
+    return ResponseEntity.noContent().build();
+  }
+
 }

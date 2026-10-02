@@ -46,7 +46,7 @@ public class Fachada implements FachadaIncentivos {
    private int contadorIds=1;
 
     private String generarId(){
-      return String.valueOf(contadorIds++);
+      return java.util.UUID.randomUUID().toString();
     }
 
   private void incrementarMetrica(String nombre) {
@@ -220,6 +220,8 @@ public class Fachada implements FachadaIncentivos {
     );
 }
 
+    if (obtenerProgresoActual(donador) != null) throw new IllegalArgumentException("El donador ya tiene una misión en curso");
+    if (mision.getCategoriaInicio() != donador.getCategoria()) throw new IllegalArgumentException("La misión no corresponde a la categoría del donador");
     donador.asignarMision(mision);
 
     if (!progresoMisionRepository.existsByDonadorIdAndMisionId(
@@ -246,7 +248,8 @@ public class Fachada implements FachadaIncentivos {
 
     if(donador==null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("Donador no encontrado en el sistema");
+      validarQueDonadorExiste(donadorID);
+      return List.of();
     }
     return donador.getInsignias().stream()
                   .map(insignia -> IncentivosMapper.toInsigniaDTO(insignia))
@@ -261,13 +264,14 @@ public class Fachada implements FachadaIncentivos {
 
     if(donador == null){
       incrementarMetrica("donatrack.incentivos.errores");
-        throw new RuntimeException("Donador no encontrado en el sistema");
+      validarQueDonadorExiste(donadorID);
+      return null;
     }
   ProgresoMision progreso = obtenerProgresoActual(donador);
 
   if (progreso == null) {
     incrementarMetrica("donatrack.incentivos.errores");
-            throw new NoSuchElementException("El donador " + donadorID + " no tiene ninguna misión en curso");
+      return null;
   }
 
   Mision mision = misionRepository
@@ -341,11 +345,13 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
         if (nuevaCategoria != null) {
             donador.avanzarCategoria(nuevaCategoria);
+            fachadaDonadoresYEntidades.modifcarCategoria(donadorID, nuevaCategoria.name());
         }
 
         progreso.completar();
         progresoMisionRepository.save(progreso);
-    
+        incrementarMetrica("donatrack.incentivos.misiones.completadas");
+        org.slf4j.LoggerFactory.getLogger(Fachada.class).info("mision.completada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
 
 } else if ( !mision.estaCompleta(donaciones) &&
         progreso.estaCompletada()
@@ -363,6 +369,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
     if (categoriaAnterior != null) {
         donador.retrocederCategoria(categoriaAnterior);
+        fachadaDonadoresYEntidades.modifcarCategoria(donadorID, categoriaAnterior.name());
     }
 
     // Quitar la insignia correspondiente a la misión
@@ -373,11 +380,13 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
     }
 
     progresoMisionRepository.save(progreso);
+    incrementarMetrica("donatrack.incentivos.misiones.revocadas");
+    org.slf4j.LoggerFactory.getLogger(Fachada.class).info("mision.revocada donador={} mision={} categoria={}", donadorID, mision.getId(), donador.getCategoria());
 }
 
-        donadorRepository.save(donador);
-        incrementarMetrica("donatrack.incentivos.donadores.procesados");
 }
+    donadorRepository.save(donador);
+    incrementarMetrica("donatrack.incentivos.donadores.procesados");
   }
 
    public List<InsigniaDTO> getInsignias() {
@@ -423,4 +432,32 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
     misionRepository.deleteAll();
     insigniaRepository.deleteAll();
 }
+
+  public InsigniaDTO modificarInsignia(String id, InsigniaDTO dto) {
+    Insignia insignia = insigniaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Insignia inexistente"));
+    insignia.modificarDatos(dto.nombre(), dto.descripcion());
+    return IncentivosMapper.toInsigniaDTO(insigniaRepository.save(insignia));
+  }
+  public void eliminarInsignia(String id) {
+    buscarInsigniaPorID(id);
+    if (misionRepository.findAll().stream().anyMatch(m -> id.equals(m.getInsigniaID()))
+        || donadorRepository.findAll().stream().anyMatch(d -> d.getInsignias().stream().anyMatch(b -> id.equals(b.getId()))))
+      throw new IllegalArgumentException("La insignia está en uso por una misión o donador");
+    insigniaRepository.deleteById(id);
+  }
+  public MisionDTO modificarMision(String id, MisionDTO dto) {
+    Mision mision = misionRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Misión inexistente"));
+    if (mision.getTipo() != dto.tipo() || mision.getCategoriaInicio() != dto.categoriaInicio()
+        || mision.getCategoriaFin() != dto.categoriaFin() || !java.util.Objects.equals(mision.getInsigniaID(), dto.insigniaID()))
+      throw new IllegalArgumentException("Para cambiar reglas o recompensa, cree otra misión");
+    mision.modificarDatos(dto.nombre(), null);
+    return IncentivosMapper.toMisionDTO(misionRepository.save(mision));
+  }
+  public void eliminarMision(String id) {
+    buscarMisionPorID(id);
+    if (donadorRepository.findAll().stream().anyMatch(d -> d.getMisiones().stream().anyMatch(m -> id.equals(m.getId()))))
+      throw new IllegalArgumentException("La misión está asignada a un donador");
+    misionRepository.deleteById(id);
+  }
+
 }

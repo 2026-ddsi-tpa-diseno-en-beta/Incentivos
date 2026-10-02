@@ -67,4 +67,11 @@ private void generarId() {
         id = UUID.randomUUID().toString();
     }
 } 
+
+  public void modificarDatos(String nombre, String descripcion) {
+    if (nombre == null || nombre.isBlank()) throw new IllegalArgumentException("Nombre requerido");
+    this.nombre = nombre;
+    
+  }
+
 }

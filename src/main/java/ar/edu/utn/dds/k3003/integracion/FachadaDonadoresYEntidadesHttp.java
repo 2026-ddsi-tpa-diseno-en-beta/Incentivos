@@ -18,7 +18,7 @@ public class FachadaDonadoresYEntidadesHttp implements FachadaDonadoresYEntidade
      private final RestClient restClient;
 
   public FachadaDonadoresYEntidadesHttp(String baseUrl) {
-    this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    this.restClient = RestClient.builder().requestInterceptor(new ar.edu.utn.dds.k3003.observability.TracePropagationInterceptor()).baseUrl(baseUrl).build();
   }
 
   @Override
@@ -79,7 +79,8 @@ public class FachadaDonadoresYEntidadesHttp implements FachadaDonadoresYEntidade
   @Override
   public DonadorDTO modifcarCategoria(String donadorID, String categoria)
       throws NoSuchElementException {
-    throw new UnsupportedOperationException();
+    return restClient.patch().uri("/donadores/{id}/categoria", donadorID)
+        .body(java.util.Map.of("categoria", categoria)).retrieve().body(DonadorDTO.class);
   }
 
   @Override

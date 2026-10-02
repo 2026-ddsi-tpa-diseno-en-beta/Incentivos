@@ -9,4 +9,5 @@ public interface MisionRepository {
     Optional<Mision> findById(String id);
     List<Mision> findAll();
     void deleteAll();
+  void deleteById(String id);
 }
