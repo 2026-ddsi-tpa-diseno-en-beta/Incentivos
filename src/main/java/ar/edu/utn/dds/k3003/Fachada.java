@@ -89,7 +89,7 @@ public class Fachada implements FachadaIncentivos {
     private void validarQueDonadorExiste(String donadorID) {
       if(donadorID==null){ 
         incrementarMetrica("donatrack.incentivos.errores");
-        throw new RuntimeException("El donador no existe en el sistema");
+        throw new IllegalArgumentException("El donador no existe en el sistema");
       }
         fachadaDonadoresYEntidades.buscarDonadorPorID(donadorID);
     }
@@ -136,12 +136,13 @@ public class Fachada implements FachadaIncentivos {
   public InsigniaDTO agregarInsignia(InsigniaDTO insigniaDTO){
     if(insigniaDTO==null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("La insignia no existe");
+      throw new IllegalArgumentException("Insignia requerida");
     }
 
+    if(insigniaDTO.nombre() == null || insigniaDTO.nombre().isBlank()) throw new IllegalArgumentException("Nombre requerido");
     if(insigniaDTO.id() != null && insigniaRepository.findById(insigniaDTO.id()).orElse(null) != null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("La insignia ya existe");
+      throw new IllegalArgumentException("La insignia ya existe");
     }
     String id = insigniaDTO.id() != null ? insigniaDTO.id() : generarId();
     Insignia insignia = new Insignia(id, insigniaDTO.nombre(), insigniaDTO.descripcion());
@@ -154,14 +155,19 @@ public class Fachada implements FachadaIncentivos {
   public MisionDTO agregarMision(MisionDTO misionDTO){
     if(misionDTO == null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("La mision no existe");
+      throw new IllegalArgumentException("La mision no existe");
     }
 
     if(misionDTO.id() != null && misionRepository.findById(misionDTO.id()).orElse(null) != null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("La mision ya existe");
+      throw new IllegalArgumentException("La mision ya existe");
     }
 
+    if (misionDTO.nombre() == null || misionDTO.nombre().isBlank() || misionDTO.tipo() == null
+        || misionDTO.categoriaInicio() == null || misionDTO.categoriaFin() == null
+        || misionDTO.insigniaID() == null || misionDTO.insigniaID().isBlank())
+      throw new IllegalArgumentException("Datos de misión incompletos");
+    insigniaRepository.findById(misionDTO.insigniaID()).orElseThrow(() -> new NoSuchElementException("Insignia inexistente"));
     String id= generarId();
 
     Mision mision = MisionFactory.crear(id, misionDTO); 
@@ -176,7 +182,7 @@ public class Fachada implements FachadaIncentivos {
     this.validarQueDonadorExiste(donadorID);
     if(dto == null || dto.id() == null){
       incrementarMetrica("donatrack.incentivos.errores");
-        throw new RuntimeException("InsigniaDTO invalida");
+        throw new IllegalArgumentException("InsigniaDTO invalida");
     }
 
     DonadorIncentivo donador = obtenerODarDeAltaDonador(donadorID);
@@ -184,7 +190,7 @@ public class Fachada implements FachadaIncentivos {
     Insignia insignia = insigniaRepository.findById(dto.id()).orElse(null);
     if(insignia == null){
       incrementarMetrica("donatrack.incentivos.errores");
-        throw new RuntimeException("La insignia no existe");
+        throw new NoSuchElementException("La insignia no existe");
     }
 
     donador.agregarInsignia(insignia);
@@ -198,7 +204,7 @@ public class Fachada implements FachadaIncentivos {
     
     if(misionDTO == null || misionDTO.id() == null){
       incrementarMetrica("donatrack.incentivos.errores");
-        throw new RuntimeException("MisionDTO invalida");
+        throw new IllegalArgumentException("MisionDTO invalida");
     }
 
     DonadorIncentivo donador= obtenerODarDeAltaDonador(donadorID);
@@ -206,7 +212,7 @@ public class Fachada implements FachadaIncentivos {
     Mision mision = misionRepository.findById(misionDTO.id()).orElse(null);
     if(mision == null){
       incrementarMetrica("donatrack.incentivos.errores");
-      throw new RuntimeException("la misión no existe");
+      throw new NoSuchElementException("la misión no existe");
     }
 
     if (progresoMisionRepository.existsByDonadorIdAndMisionId(
@@ -277,7 +283,7 @@ public class Fachada implements FachadaIncentivos {
   Mision mision = misionRepository
         .findById(progreso.getMisionId())
         .orElseThrow(() ->
-                new RuntimeException("Misión inexistente"));
+                new NoSuchElementException("Misión inexistente"));
 
   return IncentivosMapper.toMisionDTO(mision);
 }
@@ -402,7 +408,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
          Insignia insignia = insigniaRepository.findById(id)
             .orElseThrow(() ->
-                    new RuntimeException("Insignia inexistente"));
+                    new NoSuchElementException("Insignia inexistente"));
 
         return IncentivosMapper.toInsigniaDTO(insignia);
     }
@@ -420,7 +426,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
         Mision mision = misionRepository.findById(id)
             .orElseThrow(() ->
-                    new RuntimeException("Misión inexistente"));
+                    new NoSuchElementException("Misión inexistente"));
 
         return IncentivosMapper.toMisionDTO(mision);
     }
@@ -433,11 +439,13 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
     insigniaRepository.deleteAll();
 }
 
+  @Transactional
   public InsigniaDTO modificarInsignia(String id, InsigniaDTO dto) {
     Insignia insignia = insigniaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Insignia inexistente"));
     insignia.modificarDatos(dto.nombre(), dto.descripcion());
     return IncentivosMapper.toInsigniaDTO(insigniaRepository.save(insignia));
   }
+  @Transactional
   public void eliminarInsignia(String id) {
     buscarInsigniaPorID(id);
     if (misionRepository.findAll().stream().anyMatch(m -> id.equals(m.getInsigniaID()))
@@ -445,14 +453,16 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
       throw new IllegalArgumentException("La insignia está en uso por una misión o donador");
     insigniaRepository.deleteById(id);
   }
+  @Transactional
   public MisionDTO modificarMision(String id, MisionDTO dto) {
     Mision mision = misionRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Misión inexistente"));
     if (mision.getTipo() != dto.tipo() || mision.getCategoriaInicio() != dto.categoriaInicio()
         || mision.getCategoriaFin() != dto.categoriaFin() || !java.util.Objects.equals(mision.getInsigniaID(), dto.insigniaID()))
       throw new IllegalArgumentException("Para cambiar reglas o recompensa, cree otra misión");
-    mision.modificarDatos(dto.nombre(), null);
+    mision.modificarNombre(dto.nombre());
     return IncentivosMapper.toMisionDTO(misionRepository.save(mision));
   }
+  @Transactional
   public void eliminarMision(String id) {
     buscarMisionPorID(id);
     if (donadorRepository.findAll().stream().anyMatch(d -> d.getMisiones().stream().anyMatch(m -> id.equals(m.getId()))))

@@ -68,7 +68,7 @@ private void generarId() {
     }
 } 
 
-  public void modificarDatos(String nombre, String descripcion) {
+  public void modificarNombre(String nombre) {
     if (nombre == null || nombre.isBlank()) throw new IllegalArgumentException("Nombre requerido");
     this.nombre = nombre;
     

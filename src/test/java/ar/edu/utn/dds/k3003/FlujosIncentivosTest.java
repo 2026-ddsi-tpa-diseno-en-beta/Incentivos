@@ -84,4 +84,15 @@ class FlujosIncentivosTest {
     when(misiones.findAll()).thenReturn(List.of(mision));
     assertThrows(IllegalArgumentException.class,()->fachada.eliminarInsignia("b")); verify(insignias,never()).deleteById(any());
   }
+  @Test void catalogoRechazaMisionesSinRecompensaExistente() {
+    var dto=new MisionDTO(null,"Completitud","inexistente",CategoriaDonadorEnum.OCASIONAL,
+        CategoriaDonadorEnum.COLABORADOR,TipoMisionEnum.COMPLETITUD);
+    assertThrows(NoSuchElementException.class,()->fachada.agregarMision(dto));
+    verify(misiones,never()).save(any());
+  }
+  @Test void catalogoRechazaNombreVacioYReportaAusentes() {
+    assertThrows(IllegalArgumentException.class,()->fachada.agregarInsignia(new InsigniaDTO(null," ","Descripción")));
+    assertThrows(NoSuchElementException.class,()->fachada.buscarInsigniaPorID("inexistente"));
+    assertThrows(NoSuchElementException.class,()->fachada.buscarMisionPorID("inexistente"));
+  }
 }
