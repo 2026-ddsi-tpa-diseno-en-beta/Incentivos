@@ -3,10 +3,13 @@ package ar.edu.utn.dds.k3003;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import ar.edu.utn.dds.k3003.messaging.ReadModelEventPublisher;
 
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.EstadoDonacionEnum;
 import ar.edu.utn.dds.k3003.catedra.dtos.donaciones.ProductoDTO;
@@ -42,6 +45,9 @@ public class Fachada implements FachadaIncentivos {
     private final MisionRepository misionRepository;
     private final MeterRegistry meterRegistry;
     private final ProgresoMisionRepository progresoMisionRepository;
+
+    @Autowired(required = false)
+    private ReadModelEventPublisher readModelEventPublisher;
 
    private int contadorIds=1;
 
@@ -148,6 +154,7 @@ public class Fachada implements FachadaIncentivos {
     Insignia insignia = new Insignia(id, insigniaDTO.nombre(), insigniaDTO.descripcion());
     insigniaRepository.save(insignia); 
     incrementarMetrica("donatrack.incentivos.insignias.creadas");
+    publicarEvento("insignia", insignia.getId(), "UPSERT", snapshotInsignia(insignia));
     return IncentivosMapper.toInsigniaDTO(insignia);
   }
 
@@ -174,6 +181,7 @@ public class Fachada implements FachadaIncentivos {
     
     misionRepository.save(mision);
     incrementarMetrica("donatrack.incentivos.misiones.creadas");
+    publicarEvento("mision", mision.getId(), "UPSERT", snapshotMision(mision));
     return IncentivosMapper.toMisionDTO(mision);
   }
 
@@ -195,7 +203,7 @@ public class Fachada implements FachadaIncentivos {
 
     donador.agregarInsignia(insignia);
     donadorRepository.save(donador);
-    
+    publicarEvento("incentivo_donador", donadorID, "UPSERT", snapshotIncentivosDonador(donador));
   }
 
   @Override
@@ -243,6 +251,7 @@ public class Fachada implements FachadaIncentivos {
     progresoMisionRepository.save(progreso);
   }
     donadorRepository.save(donador);
+    publicarEvento("incentivo_donador", donadorID, "UPSERT", snapshotIncentivosDonador(donador));
     incrementarMetrica("donatrack.incentivos.misiones.asignadas");
   }
 
@@ -392,6 +401,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
 }
     donadorRepository.save(donador);
+    publicarEvento("incentivo_donador", donadorID, "UPSERT", snapshotIncentivosDonador(donador));
     incrementarMetrica("donatrack.incentivos.donadores.procesados");
   }
 
@@ -433,6 +443,12 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
 
     @Transactional
     public void limpiarDatos() {
+    donadorRepository.findAll().forEach(donador ->
+        publicarEvento("incentivo_donador", donador.getDonadorId(), "DELETE", Map.of()));
+    misionRepository.findAll().forEach(mision ->
+        publicarEvento("mision", mision.getId(), "DELETE", Map.of()));
+    insigniaRepository.findAll().forEach(insignia ->
+        publicarEvento("insignia", insignia.getId(), "DELETE", Map.of()));
     progresoMisionRepository.deleteAll();
     donadorRepository.deleteAll();
     misionRepository.deleteAll();
@@ -443,7 +459,9 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
   public InsigniaDTO modificarInsignia(String id, InsigniaDTO dto) {
     Insignia insignia = insigniaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Insignia inexistente"));
     insignia.modificarDatos(dto.nombre(), dto.descripcion());
-    return IncentivosMapper.toInsigniaDTO(insigniaRepository.save(insignia));
+    Insignia guardada = insigniaRepository.save(insignia);
+    publicarEvento("insignia", guardada.getId(), "UPSERT", snapshotInsignia(guardada));
+    return IncentivosMapper.toInsigniaDTO(guardada);
   }
   @Transactional
   public void eliminarInsignia(String id) {
@@ -452,6 +470,7 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
         || donadorRepository.findAll().stream().anyMatch(d -> d.getInsignias().stream().anyMatch(b -> id.equals(b.getId()))))
       throw new IllegalArgumentException("La insignia está en uso por una misión o donador");
     insigniaRepository.deleteById(id);
+    publicarEvento("insignia", id, "DELETE", Map.of());
   }
   @Transactional
   public MisionDTO modificarMision(String id, MisionDTO dto) {
@@ -460,7 +479,9 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
         || mision.getCategoriaFin() != dto.categoriaFin() || !java.util.Objects.equals(mision.getInsigniaID(), dto.insigniaID()))
       throw new IllegalArgumentException("Para cambiar reglas o recompensa, cree otra misión");
     mision.modificarNombre(dto.nombre());
-    return IncentivosMapper.toMisionDTO(misionRepository.save(mision));
+    Mision guardada = misionRepository.save(mision);
+    publicarEvento("mision", guardada.getId(), "UPSERT", snapshotMision(guardada));
+    return IncentivosMapper.toMisionDTO(guardada);
   }
   @Transactional
   public void eliminarMision(String id) {
@@ -468,6 +489,49 @@ if (mision.estaCompleta(donaciones)  && !progreso.estaCompletada()) {
     if (donadorRepository.findAll().stream().anyMatch(d -> d.getMisiones().stream().anyMatch(m -> id.equals(m.getId()))))
       throw new IllegalArgumentException("La misión está asignada a un donador");
     misionRepository.deleteById(id);
+    publicarEvento("mision", id, "DELETE", Map.of());
+  }
+
+  private void publicarEvento(
+      String tipo, String id, String operacion, Map<String, Object> payload) {
+    if (readModelEventPublisher != null) {
+      readModelEventPublisher.publicar(tipo, id, operacion, payload);
+    }
+  }
+
+  private Map<String, Object> snapshotInsignia(Insignia insignia) {
+    Map<String, Object> snapshot = new LinkedHashMap<>();
+    snapshot.put("id", insignia.getId());
+    snapshot.put("nombre", insignia.getNombre());
+    snapshot.put("descripcion", insignia.getDescripcion());
+    return snapshot;
+  }
+
+  private Map<String, Object> snapshotMision(Mision mision) {
+    Map<String, Object> snapshot = new LinkedHashMap<>();
+    snapshot.put("id", mision.getId());
+    snapshot.put("nombre", mision.getNombre());
+    snapshot.put("insigniaID", mision.getInsigniaID());
+    snapshot.put("categoriaInicio", mision.getCategoriaInicio() == null ? null : mision.getCategoriaInicio().name());
+    snapshot.put("categoriaFin", mision.getCategoriaFin() == null ? null : mision.getCategoriaFin().name());
+    snapshot.put("tipo", mision.getTipo() == null ? null : mision.getTipo().name());
+    return snapshot;
+  }
+
+  private Map<String, Object> snapshotIncentivosDonador(DonadorIncentivo donador) {
+    Map<String, Object> snapshot = new LinkedHashMap<>();
+    snapshot.put("donadorID", donador.getDonadorId());
+    snapshot.put("categoria", donador.getCategoria() == null ? null : donador.getCategoria().name());
+    snapshot.put("insignias", donador.getInsignias().stream().map(this::snapshotInsignia).toList());
+    snapshot.put("misiones", donador.getMisiones().stream().map(this::snapshotMision).toList());
+    snapshot.put("progresos", progresoMisionRepository.findByDonadorId(donador.getDonadorId()).stream()
+        .map(progreso -> {
+          Map<String, Object> dato = new LinkedHashMap<>();
+          dato.put("misionID", progreso.getMisionId());
+          dato.put("completada", progreso.estaCompletada());
+          return dato;
+        }).toList());
+    return snapshot;
   }
 
 }
