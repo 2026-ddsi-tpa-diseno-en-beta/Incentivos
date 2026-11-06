@@ -1,10 +1,5 @@
 package ar.edu.utn.dds.k3003.integracion;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-
-import org.springframework.web.client.RestClient;
-
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.DonadorDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.DonadorStatsDTO;
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.EntidadBeneficaDTO;
@@ -13,12 +8,20 @@ import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.NecesidadMaterialDT
 import ar.edu.utn.dds.k3003.catedra.dtos.donadoresYEntidades.QuejaDTO;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaDonadoresYEntidades;
 import ar.edu.utn.dds.k3003.catedra.fachadas.FachadaIncentivos;
+import java.util.List;
+import java.util.NoSuchElementException;
+import org.springframework.web.client.RestClient;
 
-public class FachadaDonadoresYEntidadesHttp implements FachadaDonadoresYEntidades{
-     private final RestClient restClient;
+public class FachadaDonadoresYEntidadesHttp implements FachadaDonadoresYEntidades {
+  private final RestClient restClient;
 
   public FachadaDonadoresYEntidadesHttp(String baseUrl) {
-    this.restClient = RestClient.builder().requestInterceptor(new ar.edu.utn.dds.k3003.observability.TracePropagationInterceptor()).baseUrl(baseUrl).build();
+    this.restClient =
+        RestClient.builder()
+            .requestInterceptor(
+                new ar.edu.utn.dds.k3003.observability.TracePropagationInterceptor())
+            .baseUrl(baseUrl)
+            .build();
   }
 
   @Override
@@ -79,8 +82,13 @@ public class FachadaDonadoresYEntidadesHttp implements FachadaDonadoresYEntidade
   @Override
   public DonadorDTO modifcarCategoria(String donadorID, String categoria)
       throws NoSuchElementException {
-    return restClient.patch().uri("/donadores/{id}/categoria", donadorID)
-        .body(java.util.Map.of("categoria", categoria)).retrieve().body(DonadorDTO.class);
+    return restClient
+        .patch()
+        .uri("/donadores/{id}/categoria", donadorID)
+        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        .body(java.util.Map.of("categoria", categoria))
+        .retrieve()
+        .body(DonadorDTO.class);
   }
 
   @Override

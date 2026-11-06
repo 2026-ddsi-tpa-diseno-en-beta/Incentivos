@@ -10,52 +10,57 @@ import jakarta.persistence.UniqueConstraint;
 @Entity
 @Table(
     name = "progreso_mision",
-    uniqueConstraints = @UniqueConstraint(
-        columnNames = {"donadorId", "misionId"}
-    )
-)
+    uniqueConstraints = @UniqueConstraint(columnNames = {"donadorId", "misionId"}))
 public class ProgresoMision {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    private String donadorId;
+  private String donadorId;
 
-    private String misionId;
+  private String misionId;
 
-    private boolean completada = false;
+  private boolean completada = false;
+  private int cantidadActual;
 
-    public ProgresoMision() {
-    }
+  public int getCantidadActual() {
+    return cantidadActual;
+  }
 
-    public ProgresoMision(String donadorId, String misionId) {
-        this.donadorId = donadorId;
-        this.misionId = misionId;
-        this.completada = false;
-    }
+  public void actualizarCantidad(int value) {
+    this.cantidadActual = value;
+  }
 
-    public Long getId() {
-        return id;
-    }
+  public ProgresoMision() {}
 
-    public String getDonadorId() {
-        return donadorId;
-    }
+  public ProgresoMision(String donadorId, String misionId) {
+    this.donadorId = donadorId;
+    this.misionId = misionId;
+    this.completada = false;
+  }
 
-    public String getMisionId() {
-        return misionId;
-    }
+  public Long getId() {
+    return id;
+  }
 
-    public boolean estaCompletada() {
-        return completada;
-    }
+  public String getDonadorId() {
+    return donadorId;
+  }
 
-    public void completar() {
-        this.completada = true;
-    }
+  public String getMisionId() {
+    return misionId;
+  }
 
-    public void descompletar() {
-        this.completada = false;
-    }
+  public boolean estaCompletada() {
+    return completada;
+  }
+
+  public void completar() {
+    this.completada = true;
+  }
+
+  public void descompletar() {
+    this.completada = false;
+  }
 }
